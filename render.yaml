@@ -9,7 +9,11 @@ services:
       name: bikerr
       property: connectionString
   region: Singapore # optional: customize this region
-  buildCommand: npm install --production=false
+  buildCommand: |
+      npm install --production=false
+      npx prisma generate # Generate Prisma client during build
+      npx prisma migrate deploy # Apply migrations during build (free tier workaround)
+  startCommand: npm start # This is your PRODUCTION start
   startCommand: npm run start
   preDeployCommand: npx prisma migrate deploy
 
