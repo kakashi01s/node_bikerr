@@ -1,0 +1,127 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+enum ChatRole {
+  OWNER
+  MODERATOR
+  MEMBER
+}
+enum JoinRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int             @id @unique @default(autoincrement())
+  name              String?
+  email             String          @unique
+  password          String
+  traccarId         Int?            @unique
+  created_at        DateTime        @default(now())
+  updated_at        DateTime        @default(now())
+  isVerified        Boolean         @default(false)
+  verificationToken String?
+  resetToken        String?
+  profileImageKey   String?         // S3 key for user profile image
+  refreshToken      String?         // Encrypted or hashed refresh token
+
+  // Relations
+  traccarDetail     TraccarDetail?
+  messages          Message[]
+  chatRooms         ChatRoomUser[]
+  joinRequests      JoinRequest[]
+}
+model TraccarDetail {
+  traccarId     Int     @id @unique
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade) // <-- ADDED onDelete
+  userId        Int     @unique
+  traccarToken  String
+}
+
+model ChatRoom {
+  id           Int             @id @default(autoincrement())
+  name         String?         @unique
+  description  String?
+  state        String?
+  city         String?
+  isGroup      Boolean         @default(false)
+  // Add the isPublic field here
+  isPublic     Boolean         @default(true) // Set a default based on your needs
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @default(now())
+  isInviteOnly Boolean         @default(false)
+  image        String?         // S3 key for the chat room image
+
+  // Relations
+  messages     Message[]       // Messages in the room
+  users        ChatRoomUser[]  // Users in the room
+  joinRequests JoinRequest[]   // Join requests for the room
+}
+
+
+model ChatRoomUser {
+  id         Int       @id @default(autoincrement())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     Int
+  chatRoom   ChatRoom  @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  chatRoomId Int
+  joinedAt   DateTime  @default(now())
+  role       ChatRole  @default(MEMBER)
+  lastReadAt DateTime? // <-- Add this line for tracking
+
+  @@unique([userId, chatRoomId])
+}
+
+
+model Message {
+  id              Int                  @id @default(autoincrement())
+  content         String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  isEdited        Boolean              @default(false)
+  parentMessageId Int?                 // Nullable field for replies
+  senderId        Int
+  chatRoomId      Int
+  sender          User                 @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  chatRoom        ChatRoom             @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  parentMessage   Message?             @relation("MessageReply", fields: [parentMessageId], references: [id])
+  replies         Message[]            @relation("MessageReply")
+  attachments     MessageAttachment[]
+
+    // optional index to improve fetches
+  @@index([chatRoomId])
+}
+
+model MessageAttachment {
+  id        Int     @id @default(autoincrement())
+  key       String  // S3 key
+  fileType  String  // MIME type
+  messageId Int
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+model JoinRequest {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  chatRoomId Int
+  status     JoinRequestStatus @default(PENDING)  // PENDING, APPROVED, DENIED
+  requestedAt DateTime @default(now())
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)     // <-- ADDED onDelete
+  chatRoom   ChatRoom  @relation(fields: [chatRoomId], references: [id], onDelete: Cascade) // <-- ADDED onDelete
+
+  @@unique([userId, chatRoomId])
+}
