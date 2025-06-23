@@ -1882,7 +1882,7 @@ const getAllChatRoomsPaginated = AsyncHandler(async (req, res) => {
     memberCount: room._count.users,
     isMember: room.users.length > 0,
     joinRequestStatus: joinRequestStatus,
-    isRequestedByCurrentUser: joinRequestStatus === prisma.JoinRequestStatus.PENDING, // This is line 1885
+    isRequestedByCurrentUser: joinRequestStatus === JoinRequestStatus.PENDING, // This is line 1885
   };
 });
     const totalRooms = await prisma.chatRoom.count();
