@@ -375,7 +375,7 @@ const getChatRoomDetails = AsyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20; // Messages per page
   const offset = (page - 1) * limit;
-   const cursorId = req.query.cursor ? parseInt(req.query.cursor) : null; // Cursor for older messages
+  const cursorId = req.query.cursor ? parseInt(req.query.cursor) : null; // Cursor for older messages
 
   // Validate chatRoomId
   if (isNaN(chatRoomId)) {
@@ -383,138 +383,151 @@ const getChatRoomDetails = AsyncHandler(async (req, res) => {
   }
 
   try {
-      // Check user membership and get last read timestamp in a single query
-      const membership = await prisma.chatRoomUser.findUnique({
-        where: {
-          userId_chatRoomId: {
-            userId: userId,
-            chatRoomId: chatRoomId,
-          },
+    // Check user membership and get last read timestamp in a single query
+    const membership = await prisma.chatRoomUser.findUnique({
+      where: {
+        userId_chatRoomId: {
+          userId: userId,
+          chatRoomId: chatRoomId,
         },
-        select: {
-          lastReadAt: true, // Select lastReadAt for unread count calculation
-          role: true, // Include role if needed for frontend display or permissions within the room view
-        }
-      });
-
-      if (!membership) {
-        return res.status(403).json(new ApiResponse(403, {}, "You are not a member of this chat room"));
+      },
+      select: {
+        lastReadAt: true, // Select lastReadAt for unread count calculation
+        role: true, // Include role if needed for frontend display or permissions within the room view
       }
+    });
 
-      // Fetch chat room details, including members (excluding messages here as they are paginated)
-      const chatRoom = await prisma.chatRoom.findUnique({
-        where: { id: chatRoomId },
-        // Prisma includes all scalar fields (like 'image') by default when using 'include'
-        include: {
-          users: { // Include users with selected fields for member list
-            select: {
-              userId: true,
-              role: true,
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  profileImageKey: true, // Include member profile images
-                },
+    if (!membership) {
+      return res.status(403).json(new ApiResponse(403, {}, "You are not a member of this chat room"));
+    }
+
+    // Fetch chat room details, including members (excluding messages here as they are paginated)
+    const chatRoom = await prisma.chatRoom.findUnique({
+      where: { id: chatRoomId },
+      // Prisma includes all scalar fields (like 'image') by default when using 'include'
+      include: {
+        users: { // Include users with selected fields for member list
+          select: {
+            userId: true,
+            role: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                profileImageKey: true, // Include member profile images
               },
             },
           },
-          // Do NOT include messages here, they are fetched separately with pagination
         },
-      });
+        // Do NOT include messages here, they are fetched separately with pagination
+      },
+    });
 
-      if (!chatRoom) {
-        // This case should ideally not happen if membership exists, but good for robustness
-        return res.status(404).json(new ApiResponse(404, {}, "Chat room not found"));
-      }
+    if (!chatRoom) {
+      // This case should ideally not happen if membership exists, but good for robustness
+      return res.status(404).json(new ApiResponse(404, {}, "Chat room not found"));
+    }
 
-      // Fetch paginated messages
-      const messages = await prisma.message.findMany({
-        where: {
-          chatRoomId: chatRoomId,
-        },
-        orderBy: {
-          createdAt: 'desc', // Order by creation date descending (latest first)
-        },
-        take: limit, // Limit the number of messages per fetch
-        ...(cursorId && { // Apply cursor pagination logic if cursorId is provided
-           cursor: { id: cursorId }, // Start fetching AFTER the message with this ID
-           skip: 1, // Skip the cursor message itself
-        }),
-        select: {
-          id: true,
-          content: true,
-          createdAt: true,
-          isEdited: true,
-          parentMessageId: true, // Include parentMessageId
-          sender: { // Select sender details for the message
-            select: {
-              id: true,
-              name: true,
-              profileImageKey: true, // Include sender profile image
-            },
+    // Fetch paginated messages
+    const messages = await prisma.message.findMany({
+      where: {
+        chatRoomId: chatRoomId,
+      },
+      orderBy: {
+        createdAt: 'desc', // Order by creation date descending (latest first)
+      },
+      take: limit, // Limit the number of messages per fetch
+      ...(cursorId && { // Apply cursor pagination logic if cursorId is provided
+          cursor: { id: cursorId }, // Start fetching AFTER the message with this ID
+          skip: 1, // Skip the cursor message itself
+      }),
+      select: {
+        id: true,
+        content: true,
+        createdAt: true,
+        isEdited: true,
+        parentMessageId: true, // Include parentMessageId
+        sender: { // Select sender details for the message
+          select: {
+            id: true,
+            name: true,
+            profileImageKey: true, // Include sender profile image
           },
-          attachments: true, // Include attachments for the message
-           parentMessage: { // Include the parent message details if this is a reply
-               select: { // Select necessary fields for the parent message
-                 id: true,
-                 content: true,
-                 sender: {
-                   select: {
-                     id: true,
-                     name: true,
-                   }
-                 },
-                 // Include parent's attachments if needed in the quote UI
-                 attachments: {
-                    select: {
-                       fileType: true,
-                    }
-                 }
-               }
-           },
         },
-      });
+        attachments: true, // Include attachments for the message
+          parentMessage: { // Include the parent message details if this is a reply
+              select: { // Select necessary fields for the parent message
+                id: true,
+                content: true,
+                sender: {
+                  select: {
+                    id: true,
+                    name: true,
+                  }
+                },
+                // Include parent's attachments if needed in the quote UI
+                attachments: {
+                   select: {
+                      fileType: true,
+                   }
+                }
+              }
+          },
+      },
+    });
 
-      // Count total messages for pagination metadata
-      const totalMessages = await prisma.message.count({
-        where: { chatRoomId: chatRoomId },
-      });
+    // Count total messages for pagination metadata
+    const totalMessages = await prisma.message.count({
+      where: { chatRoomId: chatRoomId },
+    });
 
-      // Count unread messages based on lastReadAt from membership
-      const unreadMessages = await prisma.message.count({
+    // Count unread messages based on lastReadAt from membership
+    let unreadMessages = 0;
+    if (membership.lastReadAt) {
+      unreadMessages = await prisma.message.count({
         where: {
           chatRoomId: chatRoomId,
           // Count messages created AFTER the user's lastReadAt timestamp
           createdAt: { gt: membership.lastReadAt },
+          senderId: { not: userId } // Exclude messages sent by the current user
         },
       });
+    } else {
+        // If lastReadAt is null, it means the user has never read this chat.
+        // Count all messages in the chat room as unread, excluding those sent by the current user.
+        unreadMessages = await prisma.message.count({
+            where: {
+                chatRoomId: chatRoomId,
+                senderId: { not: userId }
+            }
+        });
+    }
 
        // Determine if there are potentially more messages older than the last fetched one
        // If the number of messages returned equals the limit, assume there's another page.
        const hasMore = messages.length === limit; // Simple check based on limit
 
 
-      // Return the combined chat room details, paginated messages, and pagination info
-      return res.status(200).json(new ApiResponse(200, {
-        ...chatRoom, // Spread the chat room details (includes 'image')
-        currentUserRole: membership.role, // Include the current user's role in this room
-        messages: messages, // Include the fetched messages
-        pagination: { // Include pagination details
-          totalMessages: totalMessages,
-          currentPage: page,
-          pageSize: limit,
-          nextCursor: messages.length > 0 ? messages[messages.length - 1].id : null, // Cursor for the next page (ID of the oldest message)
-          hasMore: hasMore, // Indicate if more messages are available
-        },
-        unreadMessages: unreadMessages, // Include unread messages count
-      }, "Chat room details fetched successfully"));
+    // Return the combined chat room details, paginated messages, and pagination info
+    return res.status(200).json(new ApiResponse(200, {
+      ...chatRoom, // Spread the chat room details (includes 'image')
+      currentUserRole: membership.role, // Include the current user's role in this room
+      messages: messages, // Include the fetched messages
+      pagination: { // Include pagination details
+        totalMessages: totalMessages,
+        currentPage: page,
+        pageSize: limit,
+        nextCursor: messages.length > 0 ? messages[messages.length - 1].id : null, // Cursor for the next page (ID of the oldest message)
+        hasMore: hasMore, // Indicate if more messages are available
+      },
+      unreadMessages: unreadMessages, // Include unread messages count
+    }, "Chat room details fetched successfully"));
   } catch (error) {
       console.error("Error fetching chat room details:", error);
 
       if (error instanceof PrismaClientKnownRequestError) {
           console.error("Prisma Error Code:", error.code);
-           return res.status(400).json(new ApiResponse(400, {}, "Database error fetching chat room details: " + error.message));
+            return res.status(400).json(new ApiResponse(400, {}, "Database error fetching chat room details: " + error.message));
       }
 
       return res.status(500).json(new ApiResponse(500, {}, "An error occurred while fetching chat room details"));
