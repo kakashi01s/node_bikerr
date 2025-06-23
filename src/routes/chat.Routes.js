@@ -18,19 +18,19 @@ router.get('/getChatRoomDetail/:chatRoomId',getChatRoomDetails);
 router.put("/updateLastRead/:chatRoomId", updateLastRead);
 router.get("/unread-counts", getUnreadCounts);
 router.post("/join/:chatRoomId",joinChatRoom);
-router.post('/:chatRoomId/join-requests/:userId', handleJoinRequest);
-router.get('/:chatRoomId/join-requests',getJoinRequestsForChatRoom);
+router.post('join-requests/:chatRoomId/:userId', handleJoinRequest);
+router.get('/join-requests/:chatRoomId',getJoinRequestsForChatRoom);
 // DELETE /api/chatrooms/:chatRoomId/users/:targetUserId
 router.delete('/removeUser/:chatRoomId/:targetUserId', removeUserFromChatRoom);
 // DELETE /api/chatrooms/:chatRoomId/leave
-router.delete('/:chatRoomId/leave',  leaveChatRoom);
+router.delete('/leave/:chatRoomId',  leaveChatRoom);
 // PUT /api/chatrooms/:chatRoomId/transfer-ownership
-router.put('/:chatRoomId/transfer-ownership', transferOwnership);
+router.put('/transfer-ownership/:chatRoomId', transferOwnership);
 router.post('/send', sendMessage); // Send message route
 router.get('/messages/:chatRoomId/', getMessagesForChatRoom);// get all messages from a chat room
 router.delete('/messages/:messageId', deleteMessage);
 // PUT /api/messages/:messageId/edit
-router.put('/messages/:messageId/edit', editMessage);
+router.put('/messages/edit/:messageId', editMessage);
 router.post('/messages/reply/:messageId', replyToMessage);
 
 
