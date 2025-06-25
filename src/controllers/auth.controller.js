@@ -1,6 +1,6 @@
 import { compare } from "bcrypt";
 import { prisma } from "../DB/db.config.js";
-import { createTraccarUser, updateTraccarPassword, generateTraccarToken } from "../middleware/traccar.middleware.js";
+import { createTraccarUser, updateTraccarPassword, generateTraccarToken, getTraccarSessionCookie } from "../middleware/traccar.middleware.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { AsyncHandler } from "../utils/asyncHandler.js";
 import { sendEmail, sendmail } from "../utils/emailHandler.js";
@@ -300,11 +300,18 @@ const loginUser = AsyncHandler(async (req, res) => {
   
     // Get Traccar Token
     const traccarTokenResult = await generateTraccarToken(email, password);
+      const traccarSessionCookie =  await getTraccarSessionCookie(email,password);
+
+
     if (!traccarTokenResult.success) {
       return res.status(500).json(new ApiResponse(500, {}, "Failed to obtain Traccar token"));
     }
   
+    if(!traccarSessionCookie.success) {
+        return res.status(500).json(new ApiResponse(500, {}, "Failed to obtain Traccar Session"));
+    }
     const traccarToken = traccarTokenResult.data;
+    const traccarCookie = traccarSessionCookie.data;
   
     // Upsert traccar detail
     await prisma.traccarDetail.upsert({
@@ -326,6 +333,7 @@ const loginUser = AsyncHandler(async (req, res) => {
     });
     const refreshToken = generateRefreshToken({ id: user.id });
   
+  
     // Save refresh token in DB
     await prisma.user.update({
       where: { id: user.id },
@@ -339,7 +347,9 @@ const loginUser = AsyncHandler(async (req, res) => {
         user: {...userData,
         accessToken,
         refreshToken,
-        traccarToken}
+        traccarToken,
+        'sessionCookie': traccarCookie
+    }
       }, "Login successful")
     );
   });
