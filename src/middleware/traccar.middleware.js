@@ -1,4 +1,5 @@
 import axios from "axios";
+import e from "express";
 import qs from 'qs'; // Import the qs library
 
 
@@ -71,15 +72,11 @@ async function generateTraccarToken(email, password) {
                     'Content-Type':'application/x-www-form-urlencoded'
                 },
                 auth: {
-                    username: process.env.TEMAIL,
-                    password: process.env.TPASS
+                    username: email,
+                    password: password
                 }
 
-                
-                //                 auth: {
-                //   email,
-                //     password
-                // }
+
             }
         );
 
