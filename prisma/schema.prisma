@@ -43,6 +43,7 @@ model User {
   messages          Message[]
   chatRooms         ChatRoomUser[]
   joinRequests      JoinRequest[]
+  trip              Trip[]
 }
 model TraccarDetail {
   traccarId     Int     @id @unique
@@ -124,4 +125,33 @@ model JoinRequest {
   chatRoom   ChatRoom  @relation(fields: [chatRoomId], references: [id], onDelete: Cascade) // <-- ADDED onDelete
 
   @@unique([userId, chatRoomId])
+}
+
+model Trip {
+  id          Int             @id @default(autoincrement())
+  userId      Int
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String?
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  positions   TripPosition[]
+}
+
+model TripPosition {
+  id        Int      @id @default(autoincrement())
+  tripId    Int
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  latitude  Float
+  longitude Float
+  timestamp DateTime
+  accuracy  Float?   // optional if available
+  speed     Float?   // optional if available
+  bearing   Float?   // optional if available
+  altitude  Float?   // optional if available
+  createdAt DateTime @default(now())
+
+  @@index([tripId])
 }
