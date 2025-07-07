@@ -28,7 +28,7 @@ app.use(cookieParser())
 import { router as authRouter } from "./routes/auth.Routes.js";
 import { router as chatRouter } from "./routes/chat.Routes.js";
 import { router as uploadRouter } from "./routes/upload.Routes.js";
-import { router as tripRouter } from "./routes/trip.routes.js";
+import { router as tripRouter} from "./routes/trip.Routes.js"
 // import { router as adminRouter } from "./routes/admin.routes.js"
 app.get('/api/v1', (req, res) => {
   // When a request comes in, send a simple text response

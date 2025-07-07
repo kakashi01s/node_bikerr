@@ -1,4 +1,3 @@
-// routes/chat.routes.js
 import {Router } from 'express';
 import { createTrip, patchTrip, deleteTrip, getAllTrips, getTripById } from '../controllers/trip.controller.js';
 import { verifyJwt } from '../middleware/auth.middleware.js';
